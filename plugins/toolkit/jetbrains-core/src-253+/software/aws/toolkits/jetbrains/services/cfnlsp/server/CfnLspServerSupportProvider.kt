@@ -34,12 +34,12 @@ internal class CfnLspServerSupportProvider : LspServerSupportProvider {
         serverStarter: LspServerSupportProvider.LspServerStarter,
     ) {
         if (file.isCfnTemplate()) {
-            serverStarter.ensureServerStarted(CfnLspServerDescriptor(project))
+            serverStarter.ensureServerStarted(CfnLspServerDescriptor.getInstance(project))
         }
     }
 }
 
-private class CfnLspServerDescriptor(project: Project) :
+class CfnLspServerDescriptor private constructor(project: Project) :
     ProjectWideLspServerDescriptor(project, "AWS CloudFormation") {
 
     private val installer = CfnLspInstaller()
@@ -194,5 +194,9 @@ private class CfnLspServerDescriptor(project: Project) :
 
     companion object {
         private val LOG = getLogger<CfnLspServerDescriptor>()
+        private val instances = mutableMapOf<Project, CfnLspServerDescriptor>()
+
+        fun getInstance(project: Project): CfnLspServerDescriptor =
+            instances.getOrPut(project) { CfnLspServerDescriptor(project) }
     }
 }
