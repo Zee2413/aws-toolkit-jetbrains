@@ -9,6 +9,8 @@ import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
 import com.intellij.platform.lsp.api.LspServer
 import com.intellij.platform.lsp.api.LspServerManager
+import com.intellij.platform.lsp.api.LspServerManagerListener
+import com.intellij.platform.lsp.api.LspServerState
 import com.nimbusds.jose.EncryptionMethod
 import com.nimbusds.jose.JWEAlgorithm
 import com.nimbusds.jose.JWEHeader
@@ -48,6 +50,7 @@ internal class CfnCredentialsService(private val project: Project) : Disposable 
         val appBus = com.intellij.openapi.application.ApplicationManager.getApplication().messageBus.connect(this)
         subscribeToCredentialChanges(appBus)
         subscribeToSettingsChanges(appBus)
+        subscribeToServerStateChanges()
     }
 
     val encryptionKeyBase64: String
@@ -110,6 +113,22 @@ internal class CfnCredentialsService(private val project: Project) : Disposable 
         appBus.subscribe(CfnLspSettingsChangeListener.TOPIC, CfnLspSettingsChangeListener {
             notifyConfigurationChanged()
         })
+    }
+
+    @Suppress("UnstableApiUsage")
+    private fun subscribeToServerStateChanges() {
+        LspServerManager.getInstance(project).addLspServerManagerListener(
+            object : LspServerManagerListener {
+                override fun serverStateChanged(lspServer: LspServer) {
+                    if (lspServer.state == LspServerState.Running) {
+                        LOG.info { "LSP server running, sending credentials" }
+                        sendCredentialsToServer()
+                    }
+                }
+            },
+            this,
+            true
+        )
     }
 
     private fun resolveCredentials(): IamCredentials? {
