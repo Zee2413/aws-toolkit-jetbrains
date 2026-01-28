@@ -50,6 +50,7 @@ import javax.swing.tree.TreePath
 
 abstract class AbstractExplorerTreeToolWindow(
     treeStructure: AbstractTreeStructure,
+    private val initialTreeExpandDepth: Int = 2,
 ) : SimpleToolWindowPanel(true, true), DataProvider, Disposable {
     private val treeModel = StructureTreeModel(treeStructure, null, Invoker.forBackgroundPoolWithoutReadAction(this), this)
     private val tree = Tree(AsyncTreeModel(treeModel, true, this))
@@ -144,7 +145,7 @@ abstract class AbstractExplorerTreeToolWindow(
 
         redrawContent()
 
-        TreeUtil.expand(tree, 2)
+        TreeUtil.expand(tree, initialTreeExpandDepth)
     }
 
     abstract val actionPlace: String
