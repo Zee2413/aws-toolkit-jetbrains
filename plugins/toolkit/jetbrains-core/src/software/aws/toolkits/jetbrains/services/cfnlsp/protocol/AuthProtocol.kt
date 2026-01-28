@@ -5,9 +5,9 @@ package software.aws.toolkits.jetbrains.services.cfnlsp.protocol
 
 data class UpdateCredentialsParams(
     val data: String,
-    val encrypted: Boolean = true
+    val encrypted: Boolean = true,
 )
 
 data class UpdateCredentialsResult(
-    val success: Boolean
+    val success: Boolean,
 )

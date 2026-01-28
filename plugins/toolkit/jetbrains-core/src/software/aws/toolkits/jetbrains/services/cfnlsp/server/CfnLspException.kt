@@ -6,7 +6,7 @@ package software.aws.toolkits.jetbrains.services.cfnlsp.server
 class CfnLspException(
     message: String,
     val errorCode: ErrorCode,
-    cause: Throwable? = null
+    cause: Throwable? = null,
 ) : Exception(message, cause) {
 
     enum class ErrorCode {
@@ -14,6 +14,6 @@ class CfnLspException(
         NO_COMPATIBLE_VERSION,
         DOWNLOAD_FAILED,
         EXTRACTION_FAILED,
-        NODE_NOT_FOUND
+        NODE_NOT_FOUND,
     }
 }

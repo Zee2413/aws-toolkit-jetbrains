@@ -3,8 +3,8 @@
 
 package software.aws.toolkits.jetbrains.services.cfnlsp.server
 
-import software.aws.toolkit.core.utils.getLogger
 import software.aws.toolkit.core.utils.error
+import software.aws.toolkit.core.utils.getLogger
 import software.aws.toolkit.core.utils.info
 import software.aws.toolkits.jetbrains.core.lsp.getToolkitsCacheRoot
 import software.aws.toolkits.jetbrains.utils.ZipDecompressor

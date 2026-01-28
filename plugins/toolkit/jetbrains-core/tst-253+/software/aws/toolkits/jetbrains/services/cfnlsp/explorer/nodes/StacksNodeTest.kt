@@ -56,10 +56,12 @@ class StacksNodeTest {
     @Test
     fun `getChildren returns stack nodes when loaded with stacks`() {
         whenever(mockStacksManager.isLoaded()).thenReturn(true)
-        whenever(mockStacksManager.get()).thenReturn(listOf(
-            StackSummary(stackName = "stack-1", stackStatus = "CREATE_COMPLETE"),
-            StackSummary(stackName = "stack-2", stackStatus = "UPDATE_COMPLETE")
-        ))
+        whenever(mockStacksManager.get()).thenReturn(
+            listOf(
+                StackSummary(stackName = "stack-1", stackStatus = "CREATE_COMPLETE"),
+                StackSummary(stackName = "stack-2", stackStatus = "UPDATE_COMPLETE")
+            )
+        )
         whenever(mockStacksManager.hasMore()).thenReturn(false)
 
         val children = stacksNode.children
@@ -71,9 +73,11 @@ class StacksNodeTest {
     @Test
     fun `getChildren includes LoadMoreStacksNode when hasMore is true`() {
         whenever(mockStacksManager.isLoaded()).thenReturn(true)
-        whenever(mockStacksManager.get()).thenReturn(listOf(
-            StackSummary(stackName = "stack-1", stackStatus = "CREATE_COMPLETE")
-        ))
+        whenever(mockStacksManager.get()).thenReturn(
+            listOf(
+                StackSummary(stackName = "stack-1", stackStatus = "CREATE_COMPLETE")
+            )
+        )
         whenever(mockStacksManager.hasMore()).thenReturn(true)
 
         val children = stacksNode.children

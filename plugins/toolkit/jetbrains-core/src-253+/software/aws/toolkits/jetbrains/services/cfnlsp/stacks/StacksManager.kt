@@ -21,7 +21,7 @@ typealias StacksChangeListener = (List<StackSummary>) -> Unit
 @Service(Service.Level.PROJECT)
 internal class StacksManager(private val project: Project) : Disposable {
     internal var lspServerProvider: LspServerProvider = defaultLspServerProvider(project)
-    
+
     private var stacks: List<StackSummary> = emptyList()
     private var nextToken: String? = null
     private var loaded = false

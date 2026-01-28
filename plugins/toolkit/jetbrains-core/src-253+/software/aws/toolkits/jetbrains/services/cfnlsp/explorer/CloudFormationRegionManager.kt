@@ -52,7 +52,7 @@ internal class CloudFormationRegionManager : PersistentStateComponent<CloudForma
     }
 
     data class State(
-        var selectedRegionId: String? = null
+        var selectedRegionId: String? = null,
     )
 
     companion object {

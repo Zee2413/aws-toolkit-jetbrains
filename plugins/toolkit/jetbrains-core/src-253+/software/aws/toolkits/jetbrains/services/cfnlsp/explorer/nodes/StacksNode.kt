@@ -44,7 +44,7 @@ internal class StacksNode(
         }
 
         val stacks = stacksManager.get()
-        
+
         if (stacks.isEmpty()) {
             return listOf(NoStacksNode(project))
         }

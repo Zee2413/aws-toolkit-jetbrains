@@ -18,8 +18,9 @@ import com.nimbusds.jose.JWEObject
 import com.nimbusds.jose.Payload
 import com.nimbusds.jose.crypto.DirectEncrypter
 import org.eclipse.lsp4j.DidChangeConfigurationParams
-import software.aws.toolkit.core.utils.getLogger
+import software.amazon.awssdk.auth.credentials.AwsSessionCredentials
 import software.aws.toolkit.core.utils.debug
+import software.aws.toolkit.core.utils.getLogger
 import software.aws.toolkit.core.utils.info
 import software.aws.toolkit.core.utils.warn
 import software.aws.toolkit.jetbrains.core.credentials.AwsConnectionManager
@@ -29,9 +30,7 @@ import software.aws.toolkit.jetbrains.core.credentials.ToolkitConnection
 import software.aws.toolkit.jetbrains.core.credentials.ToolkitConnectionManagerListener
 import software.aws.toolkits.jetbrains.services.cfnlsp.explorer.CloudFormationRegionManager
 import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.UpdateCredentialsParams
-import software.aws.toolkits.jetbrains.services.cfnlsp.server.CfnLspServerSupportProvider
 import software.aws.toolkits.jetbrains.settings.CfnLspSettingsChangeListener
-import software.amazon.awssdk.auth.credentials.AwsSessionCredentials
 import java.security.SecureRandom
 import java.util.Base64
 import javax.crypto.SecretKey
@@ -46,7 +45,7 @@ import javax.crypto.spec.SecretKeySpec
 @Service(Service.Level.PROJECT)
 internal class CfnCredentialsService(private val project: Project) : Disposable {
     private val encryptionKey: SecretKey = generateKey()
-    
+
     // Injected for testing
     internal var lspServerProvider: LspServerProvider = defaultLspServerProvider(project)
     internal var connectionManagerProvider: () -> AwsConnectionManager = { AwsConnectionManager.getInstance(project) }
@@ -120,9 +119,12 @@ internal class CfnCredentialsService(private val project: Project) : Disposable 
     }
 
     private fun subscribeToSettingsChanges(appBus: com.intellij.util.messages.MessageBusConnection) {
-        appBus.subscribe(CfnLspSettingsChangeListener.TOPIC, CfnLspSettingsChangeListener {
-            notifyConfigurationChanged()
-        })
+        appBus.subscribe(
+            CfnLspSettingsChangeListener.TOPIC,
+            CfnLspSettingsChangeListener {
+                notifyConfigurationChanged()
+            }
+        )
     }
 
     @Suppress("UnstableApiUsage")
@@ -203,5 +205,5 @@ internal data class IamCredentials(
     val region: String,
     val accessKeyId: String,
     val secretAccessKey: String,
-    val sessionToken: String? = null
+    val sessionToken: String? = null,
 )

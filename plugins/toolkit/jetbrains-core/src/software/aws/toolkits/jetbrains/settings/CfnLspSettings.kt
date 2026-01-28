@@ -143,7 +143,7 @@ internal class CfnLspSettings : PersistentStateComponent<CfnLspSettings.State> {
         var isCfnGuardEnabled: Boolean = true,
         var cfnGuardValidateOnChange: Boolean = true,
         var cfnGuardEnabledRulePacks: String = "wa-Security-Pillar",
-        var cfnGuardRulesFile: String = ""
+        var cfnGuardRulesFile: String = "",
     )
 
     companion object {
