@@ -28,6 +28,7 @@ import software.aws.toolkit.jetbrains.core.credentials.ConnectionSettingsStateCh
 import software.aws.toolkit.jetbrains.core.credentials.ConnectionState
 import software.aws.toolkit.jetbrains.core.credentials.ToolkitConnection
 import software.aws.toolkit.jetbrains.core.credentials.ToolkitConnectionManagerListener
+import software.aws.toolkits.jetbrains.services.cfnlsp.explorer.CloudFormationRegionManager
 import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.UpdateCredentialsParams
 import software.aws.toolkits.jetbrains.services.cfnlsp.server.CfnLspServerSupportProvider
 import software.aws.toolkits.jetbrains.settings.CfnLspSettingsChangeListener
@@ -56,7 +57,11 @@ internal class CfnCredentialsService(private val project: Project) : Disposable 
     val encryptionKeyBase64: String
         get() = Base64.getEncoder().encodeToString(encryptionKey.encoded)
 
-    fun sendCredentialsToServer() {
+    /**
+     * Sends current credentials to the LSP server.
+     * Uses the region from CloudFormationRegionManager (not the connection's region).
+     */
+    fun sendCredentials() {
         val server = findLspServer() ?: return
 
         val credentials = resolveCredentials()
@@ -89,7 +94,7 @@ internal class CfnCredentialsService(private val project: Project) : Disposable 
             ToolkitConnectionManagerListener.TOPIC,
             object : ToolkitConnectionManagerListener {
                 override fun activeConnectionChanged(newConnection: ToolkitConnection?) {
-                    sendCredentialsToServer()
+                    sendCredentials()
                 }
             }
         )
@@ -98,7 +103,7 @@ internal class CfnCredentialsService(private val project: Project) : Disposable 
             AwsConnectionManager.CONNECTION_SETTINGS_STATE_CHANGED,
             object : ConnectionSettingsStateChangeNotifier {
                 override fun settingsStateChanged(newState: ConnectionState) {
-                    sendCredentialsToServer()
+                    sendCredentials()
                 }
             }
         )
@@ -120,7 +125,7 @@ internal class CfnCredentialsService(private val project: Project) : Disposable 
                 override fun serverStateChanged(lspServer: LspServer) {
                     if (lspServer.state == LspServerState.Running) {
                         LOG.info { "LSP server running, sending credentials" }
-                        sendCredentialsToServer()
+                        sendCredentials()
                     }
                 }
             },
@@ -132,7 +137,9 @@ internal class CfnCredentialsService(private val project: Project) : Disposable 
     private fun resolveCredentials(): IamCredentials? {
         val connectionManager = AwsConnectionManager.getInstance(project)
         val credentialProvider = connectionManager.activeCredentialProvider ?: return null
-        val region = connectionManager.activeRegion ?: return null
+
+        // Use CloudFormation panel's selected region, not the connection's region
+        val region = CloudFormationRegionManager.getInstance().getSelectedRegion()
 
         return try {
             val awsCredentials = credentialProvider.resolveCredentials()
