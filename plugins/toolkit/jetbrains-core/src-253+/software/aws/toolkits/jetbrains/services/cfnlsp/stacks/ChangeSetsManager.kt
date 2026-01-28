@@ -6,17 +6,18 @@ package software.aws.toolkits.jetbrains.services.cfnlsp.stacks
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
-import com.intellij.platform.lsp.api.LspServer
-import com.intellij.platform.lsp.api.LspServerManager
 import software.aws.toolkit.core.utils.getLogger
 import software.aws.toolkit.core.utils.warn
 import software.aws.toolkits.jetbrains.services.cfnlsp.CfnLspServer
+import software.aws.toolkits.jetbrains.services.cfnlsp.LspServerProvider
+import software.aws.toolkits.jetbrains.services.cfnlsp.defaultLspServerProvider
 import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.ChangeSetInfo
 import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.ListChangeSetsParams
-import software.aws.toolkits.jetbrains.services.cfnlsp.server.CfnLspServerSupportProvider
 
 @Service(Service.Level.PROJECT)
 internal class ChangeSetsManager(private val project: Project) {
+    internal var lspServerProvider: LspServerProvider = defaultLspServerProvider(project)
+    
     private val stackChangeSets = mutableMapOf<String, StackChangeSets>()
 
     private data class StackChangeSets(
@@ -25,7 +26,7 @@ internal class ChangeSetsManager(private val project: Project) {
     )
 
     fun getChangeSets(stackName: String): List<ChangeSetInfo> {
-        val server = findLspServer() ?: return emptyList()
+        val server = lspServerProvider.getServer() ?: return emptyList()
 
         server.sendNotification { lsp ->
             val cfnServer = lsp as? CfnLspServer ?: return@sendNotification
@@ -47,12 +48,6 @@ internal class ChangeSetsManager(private val project: Project) {
 
     fun hasMore(stackName: String): Boolean =
         stackChangeSets[stackName]?.nextToken != null
-
-    @Suppress("UnstableApiUsage")
-    private fun findLspServer(): LspServer? =
-        LspServerManager.getInstance(project)
-            .getServersForProvider(CfnLspServerSupportProvider::class.java)
-            .firstOrNull()
 
     companion object {
         private val LOG = getLogger<ChangeSetsManager>()
