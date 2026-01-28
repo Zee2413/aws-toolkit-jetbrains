@@ -3,13 +3,13 @@
 
 package software.aws.toolkits.jetbrains.services.cfnlsp.protocol
 
-import com.google.gson.Gson
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.Test
 
 class StackProtocolTest {
 
-    private val gson = Gson()
+    private val mapper = jacksonObjectMapper()
 
     @Test
     fun `StackSummary deserializes PascalCase JSON correctly`() {
@@ -24,7 +24,7 @@ class StackProtocolTest {
             }
         """.trimIndent()
 
-        val stack = gson.fromJson(json, StackSummary::class.java)
+        val stack = mapper.readValue(json, StackSummary::class.java)
 
         assertThat(stack.stackName).isEqualTo("my-stack")
         assertThat(stack.stackId).isEqualTo("arn:aws:cloudformation:us-east-1:123456789:stack/my-stack/guid")
@@ -38,7 +38,7 @@ class StackProtocolTest {
     fun `StackSummary handles missing optional fields`() {
         val json = """{"StackName": "minimal-stack"}"""
 
-        val stack = gson.fromJson(json, StackSummary::class.java)
+        val stack = mapper.readValue(json, StackSummary::class.java)
 
         assertThat(stack.stackName).isEqualTo("minimal-stack")
         assertThat(stack.stackId).isNull()
@@ -60,7 +60,7 @@ class StackProtocolTest {
             }
         """.trimIndent()
 
-        val result = gson.fromJson(json, ListStacksResult::class.java)
+        val result = mapper.readValue(json, ListStacksResult::class.java)
 
         assertThat(result.stacks).hasSize(2)
         assertThat(result.stacks[0].stackName).isEqualTo("stack-1")
@@ -72,7 +72,7 @@ class StackProtocolTest {
     fun `ListStacksResult handles null nextToken`() {
         val json = """{"stacks": []}"""
 
-        val result = gson.fromJson(json, ListStacksResult::class.java)
+        val result = mapper.readValue(json, ListStacksResult::class.java)
 
         assertThat(result.stacks).isEmpty()
         assertThat(result.nextToken).isNull()
@@ -85,7 +85,7 @@ class StackProtocolTest {
             loadMore = true
         )
 
-        val json = gson.toJson(params)
+        val json = mapper.writeValueAsString(params)
 
         assertThat(json).contains(""""statusToExclude":["DELETE_COMPLETE"]""")
         assertThat(json).contains(""""loadMore":true""")
@@ -102,7 +102,7 @@ class StackProtocolTest {
             }
         """.trimIndent()
 
-        val changeSet = gson.fromJson(json, ChangeSetInfo::class.java)
+        val changeSet = mapper.readValue(json, ChangeSetInfo::class.java)
 
         assertThat(changeSet.changeSetName).isEqualTo("my-changeset")
         assertThat(changeSet.status).isEqualTo("CREATE_COMPLETE")
@@ -122,7 +122,7 @@ class StackProtocolTest {
             }
         """.trimIndent()
 
-        val result = gson.fromJson(json, ListChangeSetsResult::class.java)
+        val result = mapper.readValue(json, ListChangeSetsResult::class.java)
 
         assertThat(result.changeSets).hasSize(2)
         assertThat(result.changeSets[0].changeSetName).isEqualTo("cs-1")
