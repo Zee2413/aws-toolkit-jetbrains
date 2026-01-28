@@ -7,20 +7,21 @@ import com.intellij.openapi.Disposable
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
-import com.intellij.platform.lsp.api.LspServer
-import com.intellij.platform.lsp.api.LspServerManager
 import software.aws.toolkit.core.utils.getLogger
 import software.aws.toolkit.core.utils.info
 import software.aws.toolkit.core.utils.warn
 import software.aws.toolkits.jetbrains.services.cfnlsp.CfnLspServer
+import software.aws.toolkits.jetbrains.services.cfnlsp.LspServerProvider
+import software.aws.toolkits.jetbrains.services.cfnlsp.defaultLspServerProvider
 import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.ListStacksParams
 import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.StackSummary
-import software.aws.toolkits.jetbrains.services.cfnlsp.server.CfnLspServerSupportProvider
 
 typealias StacksChangeListener = (List<StackSummary>) -> Unit
 
 @Service(Service.Level.PROJECT)
 internal class StacksManager(private val project: Project) : Disposable {
+    internal var lspServerProvider: LspServerProvider = defaultLspServerProvider(project)
+    
     private var stacks: List<StackSummary> = emptyList()
     private var nextToken: String? = null
     private var loaded = false
@@ -53,7 +54,7 @@ internal class StacksManager(private val project: Project) : Disposable {
     }
 
     private fun loadStacks(loadMore: Boolean) {
-        val server = findLspServer()
+        val server = lspServerProvider.getServer()
         if (server == null) {
             LOG.warn { "No LSP server found for loading stacks" }
             return
@@ -80,7 +81,7 @@ internal class StacksManager(private val project: Project) : Disposable {
                     if (!loadMore) {
                         stacks = emptyList()
                         nextToken = null
-                        loaded = true // Mark as loaded to prevent retry loop
+                        loaded = true
                     }
                 } else if (result != null) {
                     LOG.info { "Loaded ${result.stacks.size} stacks" }
@@ -92,12 +93,6 @@ internal class StacksManager(private val project: Project) : Disposable {
             }
         }
     }
-
-    @Suppress("UnstableApiUsage")
-    private fun findLspServer(): LspServer? =
-        LspServerManager.getInstance(project)
-            .getServersForProvider(CfnLspServerSupportProvider::class.java)
-            .firstOrNull()
 
     private fun notifyListeners() {
         listeners.forEach { it(stacks) }

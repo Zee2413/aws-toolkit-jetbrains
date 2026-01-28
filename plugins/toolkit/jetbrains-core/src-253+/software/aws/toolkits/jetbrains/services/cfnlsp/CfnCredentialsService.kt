@@ -46,6 +46,11 @@ import javax.crypto.spec.SecretKeySpec
 @Service(Service.Level.PROJECT)
 internal class CfnCredentialsService(private val project: Project) : Disposable {
     private val encryptionKey: SecretKey = generateKey()
+    
+    // Injected for testing
+    internal var lspServerProvider: LspServerProvider = defaultLspServerProvider(project)
+    internal var connectionManagerProvider: () -> AwsConnectionManager = { AwsConnectionManager.getInstance(project) }
+    internal var regionManagerProvider: () -> CloudFormationRegionManager = { CloudFormationRegionManager.getInstance() }
 
     init {
         val appBus = com.intellij.openapi.application.ApplicationManager.getApplication().messageBus.connect(this)
@@ -62,7 +67,7 @@ internal class CfnCredentialsService(private val project: Project) : Disposable 
      * Uses the region from CloudFormationRegionManager (not the connection's region).
      */
     fun sendCredentials() {
-        val server = findLspServer() ?: return
+        val server = lspServerProvider.getServer() ?: return
 
         val credentials = resolveCredentials()
         if (credentials != null) {
@@ -87,7 +92,7 @@ internal class CfnCredentialsService(private val project: Project) : Disposable 
     }
 
     fun notifyConfigurationChanged() {
-        val server = findLspServer() ?: return
+        val server = lspServerProvider.getServer() ?: return
         server.sendNotification { lsp ->
             lsp.workspaceService.didChangeConfiguration(DidChangeConfigurationParams(emptyMap<String, Any>()))
         }
@@ -137,11 +142,9 @@ internal class CfnCredentialsService(private val project: Project) : Disposable 
     }
 
     private fun resolveCredentials(): IamCredentials? {
-        val connectionManager = AwsConnectionManager.getInstance(project)
+        val connectionManager = connectionManagerProvider()
         val credentialProvider = connectionManager.activeCredentialProvider ?: return null
-
-        // Use CloudFormation panel's selected region, not the connection's region
-        val region = CloudFormationRegionManager.getInstance().getSelectedRegion()
+        val region = regionManagerProvider().getSelectedRegion()
 
         return try {
             val awsCredentials = credentialProvider.resolveCredentials()
@@ -180,12 +183,6 @@ internal class CfnCredentialsService(private val project: Project) : Disposable 
         append("}")
     }
 
-    @Suppress("UnstableApiUsage")
-    private fun findLspServer(): LspServer? =
-        LspServerManager.getInstance(project)
-            .getServersForProvider(CfnLspServerSupportProvider::class.java)
-            .firstOrNull()
-
     override fun dispose() {}
 
     companion object {
@@ -201,7 +198,7 @@ internal class CfnCredentialsService(private val project: Project) : Disposable 
     }
 }
 
-private data class IamCredentials(
+internal data class IamCredentials(
     val profile: String,
     val region: String,
     val accessKeyId: String,
