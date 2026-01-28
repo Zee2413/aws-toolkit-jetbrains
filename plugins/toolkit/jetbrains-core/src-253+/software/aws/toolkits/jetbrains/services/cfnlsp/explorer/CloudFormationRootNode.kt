@@ -7,7 +7,6 @@ import com.intellij.ide.projectView.PresentationData
 import com.intellij.ide.util.treeView.AbstractTreeNode
 import com.intellij.openapi.project.Project
 import software.aws.toolkit.jetbrains.core.credentials.ToolkitConnectionManager
-import software.aws.toolkits.jetbrains.services.cfnlsp.explorer.nodes.RegionSelectorNode
 import software.aws.toolkits.jetbrains.services.cfnlsp.explorer.nodes.SignInNode
 import software.aws.toolkits.jetbrains.services.cfnlsp.explorer.nodes.StacksNode
 import software.aws.toolkits.jetbrains.services.cfnlsp.stacks.ChangeSetsManager
@@ -26,7 +25,6 @@ class CloudFormationRootNode(private val nodeProject: Project) : AbstractTreeNod
         val changeSetsManager = ChangeSetsManager.getInstance(nodeProject)
 
         return listOf(
-            RegionSelectorNode(nodeProject),
             StacksNode(nodeProject, stacksManager, changeSetsManager)
         )
     }

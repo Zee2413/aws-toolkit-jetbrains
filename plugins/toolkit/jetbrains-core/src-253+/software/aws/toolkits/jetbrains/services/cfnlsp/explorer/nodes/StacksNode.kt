@@ -8,6 +8,7 @@ import com.intellij.ide.projectView.PresentationData
 import com.intellij.ide.util.treeView.AbstractTreeNode
 import com.intellij.openapi.project.Project
 import com.intellij.ui.SimpleTextAttributes
+import software.aws.toolkits.jetbrains.core.explorer.devToolsTab.nodes.AbstractActionTreeNode
 import software.aws.toolkits.jetbrains.core.explorer.devToolsTab.nodes.ActionGroupOnRightClick
 import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.StackSummary
 import software.aws.toolkits.jetbrains.services.cfnlsp.stacks.ChangeSetsManager
@@ -39,30 +40,25 @@ internal class StacksNode(
     override fun getChildren(): Collection<AbstractTreeNode<*>> {
         if (!stacksManager.isLoaded()) {
             stacksManager.reload()
-            return listOf(LoadingNode(project))
+            return emptyList()
         }
 
-        val nodes = stacksManager.get().map { stack ->
+        val stacks = stacksManager.get()
+        
+        if (stacks.isEmpty()) {
+            return listOf(NoStacksNode(project))
+        }
+
+        val nodes = stacks.map { stack ->
             StackNode(project, stack, changeSetsManager)
         }
 
         return if (stacksManager.hasMore()) {
             nodes + LoadMoreStacksNode(project, stacksManager)
-        } else if (nodes.isEmpty()) {
-            listOf(NoStacksNode(project))
         } else {
             nodes
         }
     }
-}
-
-internal class LoadingNode(nodeProject: Project) : AbstractTreeNode<String>(nodeProject, "loading") {
-    override fun update(presentation: PresentationData) {
-        presentation.addText("Loading...", SimpleTextAttributes.GRAYED_ATTRIBUTES)
-        presentation.setIcon(AllIcons.Process.Step_1)
-    }
-    override fun getChildren(): Collection<AbstractTreeNode<*>> = emptyList()
-    override fun isAlwaysLeaf(): Boolean = true
 }
 
 internal class NoStacksNode(nodeProject: Project) : AbstractTreeNode<String>(nodeProject, "no-stacks") {
@@ -76,10 +72,15 @@ internal class NoStacksNode(nodeProject: Project) : AbstractTreeNode<String>(nod
 internal class LoadMoreStacksNode(
     nodeProject: Project,
     private val stacksManager: StacksManager,
-) : AbstractTreeNode<String>(nodeProject, "load-more") {
+) : AbstractActionTreeNode(nodeProject, "load-more", AllIcons.General.Add) {
 
     override fun update(presentation: PresentationData) {
         presentation.addText(message("cloudformation.explorer.load_more"), SimpleTextAttributes.LINK_ATTRIBUTES)
+        presentation.setIcon(AllIcons.General.Add)
+    }
+
+    override fun onDoubleClick(event: java.awt.event.MouseEvent) {
+        stacksManager.loadMoreStacks()
     }
 
     override fun getChildren(): Collection<AbstractTreeNode<*>> = emptyList()
