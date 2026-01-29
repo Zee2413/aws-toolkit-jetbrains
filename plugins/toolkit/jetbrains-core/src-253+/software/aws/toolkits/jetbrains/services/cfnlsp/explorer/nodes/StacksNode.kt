@@ -21,7 +21,9 @@ internal class StacksNode(
     private val changeSetsManager: ChangeSetsManager,
 ) : AbstractTreeNode<String>(nodeProject, "stacks"), ActionGroupOnRightClick {
 
-    override fun actionGroupName(): String = "aws.toolkit.cloudformation.stacks.actions"
+    override fun actionGroupName(): String =
+        if (stacksManager.hasMore()) "aws.toolkit.cloudformation.stacks.actions.with_more"
+        else "aws.toolkit.cloudformation.stacks.actions"
 
     override fun update(presentation: PresentationData) {
         val count = if (stacksManager.isLoaded()) {
@@ -32,7 +34,6 @@ internal class StacksNode(
         }
         presentation.addText(message("cloudformation.explorer.stacks"), SimpleTextAttributes.REGULAR_ATTRIBUTES)
         presentation.addText(" $count", SimpleTextAttributes.GRAY_ATTRIBUTES)
-        presentation.setIcon(AllIcons.Nodes.Folder)
     }
 
     override fun isAlwaysShowPlus(): Boolean = true
@@ -72,7 +73,7 @@ internal class NoStacksNode(nodeProject: Project) : AbstractTreeNode<String>(nod
 internal class LoadMoreStacksNode(
     nodeProject: Project,
     private val stacksManager: StacksManager,
-) : AbstractActionTreeNode(nodeProject, "load-more", AllIcons.General.Add) {
+) : AbstractActionTreeNode(nodeProject, "load-more-stacks", AllIcons.General.Add) {
 
     override fun update(presentation: PresentationData) {
         presentation.addText(message("cloudformation.explorer.load_more"), SimpleTextAttributes.LINK_ATTRIBUTES)
@@ -89,7 +90,7 @@ internal class LoadMoreStacksNode(
 
 internal class StackNode(
     nodeProject: Project,
-    private val stack: StackSummary,
+    val stack: StackSummary,
     private val changeSetsManager: ChangeSetsManager,
 ) : AbstractTreeNode<StackSummary>(nodeProject, stack) {
 
@@ -107,14 +108,11 @@ internal class StackNode(
         else -> AllIcons.Nodes.Folder
     }
 
+    override fun isAlwaysShowPlus(): Boolean = true
+
     override fun getChildren(): Collection<AbstractTreeNode<*>> {
         val stackName = stack.stackName ?: return emptyList()
-        val changeSets = changeSetsManager.getChangeSets(stackName)
-        return if (changeSets.isNotEmpty()) {
-            listOf(StackChangeSetsNode(project, stackName, changeSetsManager))
-        } else {
-            emptyList()
-        }
+        return listOf(StackChangeSetsNode(project, stackName, changeSetsManager))
     }
 }
 
@@ -125,16 +123,63 @@ internal class StackChangeSetsNode(
 ) : AbstractTreeNode<String>(nodeProject, "changesets-$stackName") {
 
     override fun update(presentation: PresentationData) {
-        val count = changeSetsManager.get(stackName).size
+        val changeSets = changeSetsManager.get(stackName)
+        val hasMore = changeSetsManager.hasMore(stackName)
+        val countText = if (hasMore) "(${changeSets.size}+)" else "(${changeSets.size})"
         presentation.addText(message("cloudformation.explorer.change_sets"), SimpleTextAttributes.REGULAR_ATTRIBUTES)
-        presentation.addText(" ($count)", SimpleTextAttributes.GRAY_ATTRIBUTES)
-        presentation.setIcon(AllIcons.Vcs.Changelist)
+        presentation.addText(" $countText", SimpleTextAttributes.GRAY_ATTRIBUTES)
     }
 
-    override fun getChildren(): Collection<AbstractTreeNode<*>> =
-        changeSetsManager.get(stackName).map { changeSet ->
+    override fun isAlwaysShowPlus(): Boolean = true
+
+    override fun getChildren(): Collection<AbstractTreeNode<*>> {
+        if (!changeSetsManager.isLoaded(stackName)) {
+            changeSetsManager.fetchChangeSets(stackName)
+            return emptyList()
+        }
+
+        val changeSets = changeSetsManager.get(stackName)
+        if (changeSets.isEmpty()) {
+            return listOf(NoChangeSetsNode(project))
+        }
+
+        val nodes = changeSets.map { changeSet ->
             ChangeSetNode(project, changeSet.changeSetName, changeSet.status)
         }
+
+        return if (changeSetsManager.hasMore(stackName)) {
+            nodes + LoadMoreChangeSetsNode(project, stackName, changeSetsManager)
+        } else {
+            nodes
+        }
+    }
+}
+
+internal class NoChangeSetsNode(nodeProject: Project) : AbstractTreeNode<String>(nodeProject, "no-changesets") {
+    override fun update(presentation: PresentationData) {
+        presentation.addText("No change sets found", SimpleTextAttributes.GRAYED_ATTRIBUTES)
+    }
+    override fun getChildren(): Collection<AbstractTreeNode<*>> = emptyList()
+    override fun isAlwaysLeaf(): Boolean = true
+}
+
+internal class LoadMoreChangeSetsNode(
+    nodeProject: Project,
+    private val stackName: String,
+    private val changeSetsManager: ChangeSetsManager,
+) : AbstractActionTreeNode(nodeProject, "load-more-changesets-$stackName", AllIcons.General.Add) {
+
+    override fun update(presentation: PresentationData) {
+        presentation.addText(message("cloudformation.explorer.load_more"), SimpleTextAttributes.LINK_ATTRIBUTES)
+        presentation.setIcon(AllIcons.General.Add)
+    }
+
+    override fun onDoubleClick(event: java.awt.event.MouseEvent) {
+        changeSetsManager.loadMoreChangeSets(stackName)
+    }
+
+    override fun getChildren(): Collection<AbstractTreeNode<*>> = emptyList()
+    override fun isAlwaysLeaf(): Boolean = true
 }
 
 internal class ChangeSetNode(
@@ -146,7 +191,6 @@ internal class ChangeSetNode(
     override fun update(presentation: PresentationData) {
         presentation.addText(changeSetName, SimpleTextAttributes.REGULAR_ATTRIBUTES)
         presentation.addText(" [$status]", SimpleTextAttributes.GRAY_ATTRIBUTES)
-        presentation.setIcon(AllIcons.Vcs.Changelist)
     }
 
     override fun getChildren(): Collection<AbstractTreeNode<*>> = emptyList()

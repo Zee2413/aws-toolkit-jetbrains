@@ -11,6 +11,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import software.aws.toolkits.jetbrains.services.cfnlsp.LspServerProvider
 
@@ -42,18 +43,26 @@ class ChangeSetsManagerTest {
     }
 
     @Test
-    fun `getChangeSets returns empty when no LSP server`() {
+    fun `fetchChangeSets does nothing when no LSP server`() {
         changeSetsManager.lspServerProvider = LspServerProvider { null }
 
-        val result = changeSetsManager.getChangeSets("my-stack")
+        changeSetsManager.fetchChangeSets("my-stack")
 
-        assertThat(result).isEmpty()
+        // No exception thrown, returns gracefully
+        assertThat(changeSetsManager.get("my-stack")).isEmpty()
     }
 
     @Test
-    fun `getChangeSets sends notification to LSP server`() {
-        changeSetsManager.getChangeSets("my-stack")
+    fun `fetchChangeSets sends notification to LSP server`() {
+        changeSetsManager.fetchChangeSets("my-stack")
 
         verify(mockLspServer).sendNotification(any())
+    }
+
+    @Test
+    fun `loadMoreChangeSets does nothing when no cached data`() {
+        changeSetsManager.loadMoreChangeSets("unknown-stack")
+
+        verify(mockLspServer, never()).sendNotification(any())
     }
 }

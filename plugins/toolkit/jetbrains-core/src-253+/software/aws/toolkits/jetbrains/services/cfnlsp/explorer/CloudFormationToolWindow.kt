@@ -16,6 +16,7 @@ import software.aws.toolkit.jetbrains.ToolkitPlaces
 import software.aws.toolkits.jetbrains.core.explorer.AbstractExplorerTreeToolWindow
 import software.aws.toolkits.jetbrains.services.cfnlsp.server.CfnLspServerDescriptor
 import software.aws.toolkits.jetbrains.services.cfnlsp.server.CfnLspServerSupportProvider
+import software.aws.toolkits.jetbrains.services.cfnlsp.stacks.ChangeSetsManager
 import software.aws.toolkits.jetbrains.services.cfnlsp.stacks.StacksManager
 import javax.swing.JComponent
 
@@ -29,6 +30,11 @@ internal class CloudFormationToolWindow(private val project: Project) : Abstract
     init {
         setupToolbar()
         StacksManager.getInstance(project).addListener {
+            runInEdt {
+                redrawContent()
+            }
+        }
+        ChangeSetsManager.getInstance(project).addListener {
             runInEdt {
                 redrawContent()
             }
