@@ -3,7 +3,6 @@
 
 package software.aws.toolkits.jetbrains.services.cfnlsp.stacks
 
-import com.intellij.platform.lsp.api.LspServer
 import com.intellij.testFramework.ProjectRule
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.Before
@@ -13,7 +12,11 @@ import org.mockito.kotlin.any
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
-import software.aws.toolkits.jetbrains.services.cfnlsp.LspServerProvider
+import org.mockito.kotlin.whenever
+import software.aws.toolkits.jetbrains.services.cfnlsp.CfnClientService
+import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.ListStacksResult
+import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.StackSummary
+import java.util.concurrent.CompletableFuture
 
 class StacksManagerTest {
 
@@ -21,14 +24,14 @@ class StacksManagerTest {
     @Rule
     val projectRule = ProjectRule()
 
-    private lateinit var mockLspServer: LspServer
+    private lateinit var mockClientService: CfnClientService
     private lateinit var stacksManager: StacksManager
 
     @Before
     fun setUp() {
-        mockLspServer = mock()
+        mockClientService = mock()
         stacksManager = StacksManager(projectRule.project).apply {
-            lspServerProvider = LspServerProvider { mockLspServer }
+            clientServiceProvider = { mockClientService }
         }
     }
 
@@ -53,26 +56,89 @@ class StacksManagerTest {
     }
 
     @Test
-    fun `reload does nothing when no LSP server available`() {
-        stacksManager.lspServerProvider = LspServerProvider { null }
+    fun `reload calls CfnClientService listStacks`() {
+        whenever(mockClientService.listStacks(any())).thenReturn(
+            CompletableFuture.completedFuture(ListStacksResult(emptyList()))
+        )
 
         stacksManager.reload()
 
-        assertThat(stacksManager.isLoaded()).isFalse()
+        verify(mockClientService).listStacks(any())
+    }
+
+    @Test
+    fun `reload processes successful response and updates state`() {
+        val testStacks = listOf(
+            StackSummary(stackName = "TestStack1", stackId = "stack-1", stackStatus = "CREATE_COMPLETE"),
+            StackSummary(stackName = "TestStack2", stackId = "stack-2", stackStatus = "UPDATE_COMPLETE")
+        )
+        val result = ListStacksResult(testStacks, "next-token")
+        
+        whenever(mockClientService.listStacks(any())).thenReturn(
+            CompletableFuture.completedFuture(result)
+        )
+
+        var notifiedStacks: List<StackSummary>? = null
+        stacksManager.addListener { notifiedStacks = it }
+
+        stacksManager.reload()
+
+        // Wait for async completion
+        Thread.sleep(100)
+
+        assertThat(stacksManager.isLoaded()).isTrue()
+        assertThat(stacksManager.get()).hasSize(2)
+        assertThat(stacksManager.get()[0].stackName).isEqualTo("TestStack1")
+        assertThat(stacksManager.get()[1].stackName).isEqualTo("TestStack2")
+        assertThat(stacksManager.hasMore()).isTrue()
+        assertThat(notifiedStacks).hasSize(2)
+    }
+
+    @Test
+    fun `reload handles null response gracefully`() {
+        whenever(mockClientService.listStacks(any())).thenReturn(
+            CompletableFuture.completedFuture(null)
+        )
+
+        var notified = false
+        stacksManager.addListener { notified = true }
+
+        stacksManager.reload()
+
+        // Wait for async completion
+        Thread.sleep(100)
+
+        assertThat(stacksManager.isLoaded()).isTrue()
+        assertThat(stacksManager.get()).isEmpty()
+        assertThat(stacksManager.hasMore()).isFalse()
+        assertThat(notified).isTrue()
+    }
+
+    @Test
+    fun `reload handles exception gracefully`() {
+        val failedFuture = CompletableFuture<ListStacksResult?>()
+        failedFuture.completeExceptionally(RuntimeException("Test error"))
+        whenever(mockClientService.listStacks(any())).thenReturn(failedFuture)
+
+        var notified = false
+        stacksManager.addListener { notified = true }
+
+        stacksManager.reload()
+
+        // Wait for async completion
+        Thread.sleep(100)
+
+        assertThat(stacksManager.isLoaded()).isTrue()
+        assertThat(stacksManager.get()).isEmpty()
+        assertThat(stacksManager.hasMore()).isFalse()
+        assertThat(notified).isTrue()
     }
 
     @Test
     fun `loadMoreStacks does nothing when no nextToken`() {
         stacksManager.loadMoreStacks()
 
-        verify(mockLspServer, never()).sendNotification(any())
-    }
-
-    @Test
-    fun `reload sends notification to LSP server`() {
-        stacksManager.reload()
-
-        verify(mockLspServer).sendNotification(any())
+        verify(mockClientService, never()).listStacks(any())
     }
 
     @Test

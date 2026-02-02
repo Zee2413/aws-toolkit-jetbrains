@@ -48,9 +48,9 @@ internal class CfnCredentialsService(private val project: Project) : Disposable 
     private val encryptionKey: SecretKey = generateKey()
 
     // Injected for testing
-    internal var lspServerProvider: LspServerProvider = defaultLspServerProvider(project)
     internal var connectionManagerProvider: () -> AwsConnectionManager = { AwsConnectionManager.getInstance(project) }
     internal var regionManagerProvider: () -> CloudFormationRegionManager = { CloudFormationRegionManager.getInstance() }
+    internal var clientServiceProvider: () -> CfnClientService = { CfnClientService.getInstance(project) }
 
     init {
         val appBus = com.intellij.openapi.application.ApplicationManager.getApplication().messageBus.connect(this)
@@ -66,32 +66,31 @@ internal class CfnCredentialsService(private val project: Project) : Disposable 
      * Sends current credentials to the LSP server.
      * Uses the region from CloudFormationRegionManager (not the connection's region).
      */
-    fun sendCredentials() {
-        val server = lspServerProvider.getServer() ?: return
-
+    internal fun sendCredentials() {
+        LOG.info { "Starting sendCredentials()" }
         val credentials = resolveCredentials()
         if (credentials != null) {
+            LOG.info { "Resolved credentials for profile: ${credentials.profile}, region: ${credentials.region}" }
             val encrypted = encrypt(credentials)
-            server.sendNotification { lsp ->
-                (lsp as? CfnLspServerProtocol)?.updateIamCredentials(
-                    UpdateCredentialsParams(encrypted, true)
-                )?.whenComplete { result, error ->
-                    if (error != null) {
-                        LOG.warn(error) { "Failed to update credentials on LSP server" }
-                    } else {
-                        LOG.info { "Credentials updated on LSP server: success=${result?.success}" }
-                    }
+            val params = UpdateCredentialsParams(encrypted, true)
+            
+            LOG.info { "Calling CfnClientService.updateIamCredentials()" }
+            clientServiceProvider().updateIamCredentials(params)
+                .thenAccept { result -> 
+                    LOG.info { "Credentials updated on LSP server: success=${result?.success}" }
                 }
-            }
+                .exceptionally { error -> 
+                    LOG.warn(error) { "Failed to update credentials on LSP server" }
+                    null
+                }
+        } else {
+            LOG.warn { "No credentials resolved, skipping credential update" }
         }
     }
 
-    fun notifyConfigurationChanged() {
-        val server = lspServerProvider.getServer() ?: return
-        server.sendNotification { lsp ->
-            lsp.workspaceService.didChangeConfiguration(DidChangeConfigurationParams(emptyMap<String, Any>()))
-        }
-        LOG.info { "Sent didChangeConfiguration to LSP server" }
+    internal fun notifyConfigurationChanged() {
+        LOG.info { "Starting notifyConfigurationChanged()" }
+        clientServiceProvider().notifyConfigurationChanged()
     }
 
     private fun subscribeToCredentialChanges(appBus: com.intellij.util.messages.MessageBusConnection) {
@@ -167,12 +166,6 @@ internal class CfnCredentialsService(private val project: Project) : Disposable 
         jwe.encrypt(DirectEncrypter(encryptionKey))
         return jwe.serialize()
     }
-
-    @Suppress("UnstableApiUsage")
-    private fun findLspServer(): LspServer? =
-        LspServerManager.getInstance(project)
-            .getServersForProvider(CfnLspServerSupportProvider::class.java)
-            .firstOrNull()
 
     override fun dispose() {}
 
