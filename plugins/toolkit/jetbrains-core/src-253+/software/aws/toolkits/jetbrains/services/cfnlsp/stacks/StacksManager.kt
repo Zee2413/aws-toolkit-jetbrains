@@ -10,9 +10,7 @@ import com.intellij.openapi.project.Project
 import software.aws.toolkit.core.utils.getLogger
 import software.aws.toolkit.core.utils.info
 import software.aws.toolkit.core.utils.warn
-import software.aws.toolkits.jetbrains.services.cfnlsp.CfnLspServerProtocol
-import software.aws.toolkits.jetbrains.services.cfnlsp.LspServerProvider
-import software.aws.toolkits.jetbrains.services.cfnlsp.defaultLspServerProvider
+import software.aws.toolkits.jetbrains.services.cfnlsp.CfnClientService
 import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.ListStacksParams
 import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.StackSummary
 
@@ -20,7 +18,7 @@ typealias StacksChangeListener = (List<StackSummary>) -> Unit
 
 @Service(Service.Level.PROJECT)
 internal class StacksManager(private val project: Project) : Disposable {
-    internal var lspServerProvider: LspServerProvider = defaultLspServerProvider(project)
+    internal var clientServiceProvider: () -> CfnClientService = { CfnClientService.getInstance(project) }
     
     private var stacks: List<StackSummary> = emptyList()
     private var nextToken: String? = null
@@ -54,44 +52,40 @@ internal class StacksManager(private val project: Project) : Disposable {
     }
 
     private fun loadStacks(loadMore: Boolean) {
-        val server = lspServerProvider.getServer()
-        if (server == null) {
-            LOG.warn { "No LSP server found for loading stacks" }
-            return
-        }
-
         LOG.info { "Loading stacks (loadMore=$loadMore)" }
 
-        server.sendNotification { lsp ->
-            val cfnServer = lsp as? CfnLspServerProtocol
-            if (cfnServer == null) {
-                LOG.warn { "LSP server is not CfnLspServerProtocol: ${lsp::class.java}" }
-                return@sendNotification
-            }
+        val params = ListStacksParams(
+            statusToExclude = listOf("DELETE_COMPLETE"),
+            loadMore = loadMore
+        )
 
-            LOG.info { "Sending listStacks request" }
-            cfnServer.listStacks(
-                ListStacksParams(
-                    statusToExclude = listOf("DELETE_COMPLETE"),
-                    loadMore = loadMore
-                )
-            ).whenComplete { result, error ->
-                if (error != null) {
-                    LOG.warn(error) { "Failed to load stacks" }
+        clientServiceProvider().listStacks(params)
+            .thenAccept { result ->
+                if (result != null) {
+                    LOG.info { "Loaded ${result.stacks.size} stacks" }
+                    stacks = result.stacks
+                    nextToken = result.nextToken
+                    loaded = true
+                } else {
+                    LOG.warn { "Received null result from listStacks" }
                     if (!loadMore) {
                         stacks = emptyList()
                         nextToken = null
                         loaded = true
                     }
-                } else if (result != null) {
-                    LOG.info { "Loaded ${result.stacks.size} stacks" }
-                    stacks = result.stacks
-                    nextToken = result.nextToken
-                    loaded = true
                 }
                 notifyListeners()
             }
-        }
+            .exceptionally { error ->
+                LOG.warn(error) { "Failed to load stacks" }
+                if (!loadMore) {
+                    stacks = emptyList()
+                    nextToken = null
+                    loaded = true
+                }
+                notifyListeners()
+                null
+            }
     }
 
     private fun notifyListeners() {
