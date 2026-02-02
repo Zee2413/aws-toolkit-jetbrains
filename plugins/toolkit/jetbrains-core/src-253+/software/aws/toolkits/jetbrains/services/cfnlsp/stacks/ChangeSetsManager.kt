@@ -9,7 +9,7 @@ import com.intellij.openapi.project.Project
 import software.aws.toolkit.core.utils.getLogger
 import software.aws.toolkit.core.utils.info
 import software.aws.toolkit.core.utils.warn
-import software.aws.toolkits.jetbrains.services.cfnlsp.CfnLspServer
+import software.aws.toolkits.jetbrains.services.cfnlsp.CfnLspServerProtocol
 import software.aws.toolkits.jetbrains.services.cfnlsp.LspServerProvider
 import software.aws.toolkits.jetbrains.services.cfnlsp.defaultLspServerProvider
 import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.ChangeSetInfo
@@ -42,7 +42,7 @@ internal class ChangeSetsManager(private val project: Project) {
         LOG.info { "Fetching change sets for $stackName" }
 
         server.sendNotification { lsp ->
-            val cfnServer = lsp as? CfnLspServer ?: return@sendNotification
+            val cfnServer = lsp as? CfnLspServerProtocol ?: return@sendNotification
             cfnServer.listChangeSets(ListChangeSetsParams(stackName))
                 .whenComplete { result, error ->
                     if (error != null) {
@@ -67,7 +67,7 @@ internal class ChangeSetsManager(private val project: Project) {
         LOG.info { "Loading more change sets for $stackName" }
 
         server.sendNotification { lsp ->
-            val cfnServer = lsp as? CfnLspServer ?: return@sendNotification
+            val cfnServer = lsp as? CfnLspServerProtocol ?: return@sendNotification
             cfnServer.listChangeSets(ListChangeSetsParams(stackName, nextToken))
                 .whenComplete { result, error ->
                     if (error != null) {
