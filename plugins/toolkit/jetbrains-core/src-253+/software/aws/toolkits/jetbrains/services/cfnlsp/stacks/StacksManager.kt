@@ -10,7 +10,7 @@ import com.intellij.openapi.project.Project
 import software.aws.toolkit.core.utils.getLogger
 import software.aws.toolkit.core.utils.info
 import software.aws.toolkit.core.utils.warn
-import software.aws.toolkits.jetbrains.services.cfnlsp.CfnLspServer
+import software.aws.toolkits.jetbrains.services.cfnlsp.CfnLspServerProtocol
 import software.aws.toolkits.jetbrains.services.cfnlsp.LspServerProvider
 import software.aws.toolkits.jetbrains.services.cfnlsp.defaultLspServerProvider
 import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.ListStacksParams
@@ -63,9 +63,9 @@ internal class StacksManager(private val project: Project) : Disposable {
         LOG.info { "Loading stacks (loadMore=$loadMore)" }
 
         server.sendNotification { lsp ->
-            val cfnServer = lsp as? CfnLspServer
+            val cfnServer = lsp as? CfnLspServerProtocol
             if (cfnServer == null) {
-                LOG.warn { "LSP server is not CfnLspServer: ${lsp::class.java}" }
+                LOG.warn { "LSP server is not CfnLspServerProtocol: ${lsp::class.java}" }
                 return@sendNotification
             }
 
