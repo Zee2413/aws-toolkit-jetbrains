@@ -48,7 +48,7 @@ internal class CfnCredentialsService(private val project: Project) : Disposable 
     private val encryptionKey: SecretKey = generateKey()
 
     // Injected for testing
-    internal var lspServerProvider: LspServerProvider = defaultLspServerProvider(project)
+    internal var clientServiceProvider: () -> CfnClientService = { CfnClientService.getInstance(project) }
     internal var connectionManagerProvider: () -> AwsConnectionManager = { AwsConnectionManager.getInstance(project) }
     internal var regionManagerProvider: () -> CloudFormationRegionManager = { CloudFormationRegionManager.getInstance() }
 
@@ -67,30 +67,22 @@ internal class CfnCredentialsService(private val project: Project) : Disposable 
      * Uses the region from CloudFormationRegionManager (not the connection's region).
      */
     fun sendCredentials() {
-        val server = lspServerProvider.getServer() ?: return
-
         val credentials = resolveCredentials()
         if (credentials != null) {
             val encrypted = encrypt(credentials)
-            server.sendNotification { lsp ->
-                (lsp as? CfnLspServerProtocol)?.updateIamCredentials(
-                    UpdateCredentialsParams(encrypted, true)
-                )?.whenComplete { result, error ->
-                    if (error != null) {
-                        LOG.warn(error) { "Failed to update credentials on LSP server" }
-                    } else {
-                        LOG.info { "Credentials updated on LSP server: success=${result?.success}" }
-                    }
+            clientServiceProvider().updateIamCredentials(UpdateCredentialsParams(encrypted, true))
+                .thenAccept { result ->
+                    LOG.info { "Credentials updated on LSP server: success=${result?.success}" }
                 }
-            }
+                .exceptionally { error ->
+                    LOG.warn(error) { "Failed to update credentials on LSP server" }
+                    null
+                }
         }
     }
 
     fun notifyConfigurationChanged() {
-        val server = lspServerProvider.getServer() ?: return
-        server.sendNotification { lsp ->
-            lsp.workspaceService.didChangeConfiguration(DidChangeConfigurationParams(emptyMap<String, Any>()))
-        }
+        clientServiceProvider().notifyConfigurationChanged()
         LOG.info { "Sent didChangeConfiguration to LSP server" }
     }
 

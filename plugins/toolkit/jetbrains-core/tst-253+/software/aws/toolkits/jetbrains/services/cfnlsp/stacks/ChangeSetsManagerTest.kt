@@ -22,12 +22,12 @@ class ChangeSetsManagerTest {
     val projectRule = ProjectRule()
 
     private lateinit var mockLspServer: LspServer
-    private lateinit var changeSetsManager: ChangeSetsManager
+    private lateinit var changeSetsManager: `ChangeSetsManager.kt`
 
     @Before
     fun setUp() {
         mockLspServer = mock()
-        changeSetsManager = ChangeSetsManager(projectRule.project).apply {
+        changeSetsManager = `ChangeSetsManager.kt`(projectRule.project).apply {
             lspServerProvider = LspServerProvider { mockLspServer }
         }
     }
