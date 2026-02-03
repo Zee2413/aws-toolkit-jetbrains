@@ -34,6 +34,11 @@ internal class CfnClientService(private val project: Project) {
         }
     }
 
+    /**
+     * Sends a request to the LSP server and returns a future with the result.
+     * Uses sendNotification to safely access the server instance, then calls the
+     * protocol method which returns its own CompletableFuture.
+     */
     private fun <T> sendRequest(request: (CfnLspServerProtocol) -> CompletableFuture<T>): CompletableFuture<T?> {
         val future = CompletableFuture<T?>()
         val server = lspServerProvider.getServer()

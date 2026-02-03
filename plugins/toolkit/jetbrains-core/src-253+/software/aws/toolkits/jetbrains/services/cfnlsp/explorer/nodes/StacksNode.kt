@@ -40,7 +40,7 @@ internal class StacksNode(
 
     override fun getChildren(): Collection<AbstractTreeNode<*>> {
         if (!stacksManager.isLoaded()) {
-            stacksManager.reload(showNotification = true)
+            stacksManager.reload()
             return emptyList()
         }
 

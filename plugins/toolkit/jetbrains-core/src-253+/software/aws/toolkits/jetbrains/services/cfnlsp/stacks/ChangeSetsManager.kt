@@ -12,13 +12,14 @@ import software.aws.toolkit.core.utils.warn
 import software.aws.toolkits.jetbrains.services.cfnlsp.CfnClientService
 import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.ChangeSetInfo
 import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.ListChangeSetsParams
+import java.util.concurrent.ConcurrentHashMap
 
 @Service(Service.Level.PROJECT)
 internal class ChangeSetsManager(private val project: Project) {
     internal var clientServiceProvider: () -> CfnClientService = { CfnClientService.getInstance(project) }
 
-    private val stackChangeSets = mutableMapOf<String, StackChangeSets>()
-    private val loadedStacks = mutableSetOf<String>()
+    private val stackChangeSets = ConcurrentHashMap<String, StackChangeSets>()
+    private val loadedStacks = ConcurrentHashMap.newKeySet<String>()
     private val listeners = mutableListOf<() -> Unit>()
 
     private data class StackChangeSets(
