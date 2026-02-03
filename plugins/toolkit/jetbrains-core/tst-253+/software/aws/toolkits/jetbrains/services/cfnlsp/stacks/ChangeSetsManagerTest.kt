@@ -3,7 +3,6 @@
 
 package software.aws.toolkits.jetbrains.services.cfnlsp.stacks
 
-import com.intellij.platform.lsp.api.LspServer
 import com.intellij.testFramework.ProjectRule
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.Before
@@ -13,7 +12,10 @@ import org.mockito.kotlin.any
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
-import software.aws.toolkits.jetbrains.services.cfnlsp.LspServerProvider
+import org.mockito.kotlin.whenever
+import software.aws.toolkits.jetbrains.services.cfnlsp.CfnClientService
+import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.ListChangeSetsResult
+import java.util.concurrent.CompletableFuture
 
 class ChangeSetsManagerTest {
 
@@ -21,14 +23,14 @@ class ChangeSetsManagerTest {
     @Rule
     val projectRule = ProjectRule()
 
-    private lateinit var mockLspServer: LspServer
-    private lateinit var changeSetsManager: `ChangeSetsManager.kt`
+    private lateinit var mockClientService: CfnClientService
+    private lateinit var changeSetsManager: ChangeSetsManager
 
     @Before
     fun setUp() {
-        mockLspServer = mock()
-        changeSetsManager = `ChangeSetsManager.kt`(projectRule.project).apply {
-            lspServerProvider = LspServerProvider { mockLspServer }
+        mockClientService = mock()
+        changeSetsManager = ChangeSetsManager(projectRule.project).apply {
+            clientServiceProvider = { mockClientService }
         }
     }
 
@@ -43,26 +45,20 @@ class ChangeSetsManagerTest {
     }
 
     @Test
-    fun `fetchChangeSets does nothing when no LSP server`() {
-        changeSetsManager.lspServerProvider = LspServerProvider { null }
+    fun `fetchChangeSets calls listChangeSets on client service`() {
+        whenever(mockClientService.listChangeSets(any())).thenReturn(
+            CompletableFuture.completedFuture(ListChangeSetsResult(emptyList(), null))
+        )
 
         changeSetsManager.fetchChangeSets("my-stack")
 
-        // No exception thrown, returns gracefully
-        assertThat(changeSetsManager.get("my-stack")).isEmpty()
-    }
-
-    @Test
-    fun `fetchChangeSets sends notification to LSP server`() {
-        changeSetsManager.fetchChangeSets("my-stack")
-
-        verify(mockLspServer).sendNotification(any())
+        verify(mockClientService).listChangeSets(any())
     }
 
     @Test
     fun `loadMoreChangeSets does nothing when no cached data`() {
         changeSetsManager.loadMoreChangeSets("unknown-stack")
 
-        verify(mockLspServer, never()).sendNotification(any())
+        verify(mockClientService, never()).listChangeSets(any())
     }
 }

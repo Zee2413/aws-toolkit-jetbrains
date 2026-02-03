@@ -3,7 +3,6 @@
 
 package software.aws.toolkits.jetbrains.services.cfnlsp.stacks
 
-import com.intellij.platform.lsp.api.LspServer
 import com.intellij.testFramework.ProjectRule
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.Before
@@ -13,7 +12,10 @@ import org.mockito.kotlin.any
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
-import software.aws.toolkits.jetbrains.services.cfnlsp.LspServerProvider
+import org.mockito.kotlin.whenever
+import software.aws.toolkits.jetbrains.services.cfnlsp.CfnClientService
+import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.ListStacksResult
+import java.util.concurrent.CompletableFuture
 
 class StacksManagerTest {
 
@@ -21,14 +23,14 @@ class StacksManagerTest {
     @Rule
     val projectRule = ProjectRule()
 
-    private lateinit var mockLspServer: LspServer
+    private lateinit var mockClientService: CfnClientService
     private lateinit var stacksManager: StacksManager
 
     @Before
     fun setUp() {
-        mockLspServer = mock()
+        mockClientService = mock()
         stacksManager = StacksManager(projectRule.project).apply {
-            lspServerProvider = LspServerProvider { mockLspServer }
+            clientServiceProvider = { mockClientService }
         }
     }
 
@@ -53,26 +55,21 @@ class StacksManagerTest {
     }
 
     @Test
-    fun `reload does nothing when no LSP server available`() {
-        stacksManager.lspServerProvider = LspServerProvider { null }
+    fun `reload calls listStacks on client service`() {
+        whenever(mockClientService.listStacks(any())).thenReturn(
+            CompletableFuture.completedFuture(ListStacksResult(emptyList(), null))
+        )
 
         stacksManager.reload()
 
-        assertThat(stacksManager.isLoaded()).isFalse()
+        verify(mockClientService).listStacks(any())
     }
 
     @Test
     fun `loadMoreStacks does nothing when no nextToken`() {
         stacksManager.loadMoreStacks()
 
-        verify(mockLspServer, never()).sendNotification(any())
-    }
-
-    @Test
-    fun `reload sends notification to LSP server`() {
-        stacksManager.reload()
-
-        verify(mockLspServer).sendNotification(any())
+        verify(mockClientService, never()).listStacks(any())
     }
 
     @Test
@@ -97,12 +94,5 @@ class StacksManagerTest {
 
         assertThat(listener1Called).isTrue()
         assertThat(listener2Called).isTrue()
-    }
-
-    @Test
-    fun `get returns copy of stacks list`() {
-        // Verify get() returns a list (defensive copy behavior)
-        val stacks = stacksManager.get()
-        assertThat(stacks).isInstanceOf(List::class.java)
     }
 }

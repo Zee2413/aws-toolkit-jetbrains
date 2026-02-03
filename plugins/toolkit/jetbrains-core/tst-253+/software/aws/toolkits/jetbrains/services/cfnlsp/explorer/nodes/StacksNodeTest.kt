@@ -12,7 +12,7 @@ import org.junit.Test
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.whenever
 import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.StackSummary
-import software.aws.toolkits.jetbrains.services.cfnlsp.stacks.`ChangeSetsManager.kt`
+import software.aws.toolkits.jetbrains.services.cfnlsp.stacks.ChangeSetsManager
 import software.aws.toolkits.jetbrains.services.cfnlsp.stacks.StacksManager
 
 class StacksNodeTest {
@@ -22,7 +22,7 @@ class StacksNodeTest {
     val projectRule = ProjectRule()
 
     private lateinit var mockStacksManager: StacksManager
-    private lateinit var mockChangeSetsManager: `ChangeSetsManager.kt`
+    private lateinit var mockChangeSetsManager: ChangeSetsManager
     private lateinit var stacksNode: StacksNode
 
     @Before
@@ -94,7 +94,7 @@ class StackNodeTest {
     @Rule
     val projectRule = ProjectRule()
 
-    private lateinit var mockChangeSetsManager: `ChangeSetsManager.kt`
+    private lateinit var mockChangeSetsManager: ChangeSetsManager
 
     @Before
     fun setUp() {

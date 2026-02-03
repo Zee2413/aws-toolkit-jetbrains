@@ -6,6 +6,8 @@ package software.aws.toolkits.jetbrains.services.cfnlsp
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
+import com.intellij.platform.lsp.api.LspServer
+import com.intellij.platform.lsp.api.LspServerManager
 import org.eclipse.lsp4j.DidChangeConfigurationParams
 import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.ListChangeSetsParams
 import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.ListChangeSetsResult
@@ -13,11 +15,16 @@ import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.ListStacksParams
 import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.ListStacksResult
 import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.UpdateCredentialsParams
 import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.UpdateCredentialsResult
+import software.aws.toolkits.jetbrains.services.cfnlsp.server.CfnLspServerSupportProvider
 import java.util.concurrent.CompletableFuture
 
 @Service(Service.Level.PROJECT)
-internal class CfnClientService(private val project: Project) {
-    internal var lspServerProvider: LspServerProvider = defaultLspServerProvider(project)
+internal class CfnClientService(project: Project) {
+    private val lspServerProvider: () -> LspServer? = {
+        LspServerManager.getInstance(project)
+            .getServersForProvider(CfnLspServerSupportProvider::class.java)
+            .firstOrNull()
+    }
 
     fun listStacks(params: ListStacksParams): CompletableFuture<ListStacksResult?> =
         sendRequest { it.listStacks(params) }
@@ -29,7 +36,7 @@ internal class CfnClientService(private val project: Project) {
         sendRequest { it.updateIamCredentials(params) }
 
     fun notifyConfigurationChanged() {
-        lspServerProvider.getServer()?.sendNotification { lsp ->
+        lspServerProvider()?.sendNotification { lsp ->
             lsp.workspaceService.didChangeConfiguration(DidChangeConfigurationParams(emptyMap<String, Any>()))
         }
     }
@@ -41,7 +48,7 @@ internal class CfnClientService(private val project: Project) {
      */
     private fun <T> sendRequest(request: (CfnLspServerProtocol) -> CompletableFuture<T>): CompletableFuture<T?> {
         val future = CompletableFuture<T?>()
-        val server = lspServerProvider.getServer()
+        val server = lspServerProvider()
         if (server == null) {
             future.complete(null)
             return future
