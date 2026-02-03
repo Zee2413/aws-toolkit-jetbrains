@@ -22,8 +22,11 @@ internal class StacksNode(
 ) : AbstractTreeNode<String>(nodeProject, "stacks"), ActionGroupOnRightClick {
 
     override fun actionGroupName(): String =
-        if (stacksManager.hasMore()) "aws.toolkit.cloudformation.stacks.actions.with_more"
-        else "aws.toolkit.cloudformation.stacks.actions"
+        if (stacksManager.hasMore()) {
+            "aws.toolkit.cloudformation.stacks.actions.with_more"
+        } else {
+            "aws.toolkit.cloudformation.stacks.actions"
+        }
 
     override fun update(presentation: PresentationData) {
         val count = if (stacksManager.isLoaded()) {

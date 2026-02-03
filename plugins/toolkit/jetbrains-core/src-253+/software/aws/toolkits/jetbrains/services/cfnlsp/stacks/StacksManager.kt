@@ -23,8 +23,11 @@ internal class StacksManager(private val project: Project) : Disposable {
     internal var clientServiceProvider: () -> CfnClientService = { CfnClientService.getInstance(project) }
 
     @Volatile private var stacks: List<StackSummary> = emptyList()
+
     @Volatile private var nextToken: String? = null
+
     @Volatile private var loaded = false
+
     @Volatile private var loading = false
     private val listeners = mutableListOf<StacksChangeListener>()
 

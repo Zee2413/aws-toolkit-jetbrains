@@ -19,8 +19,8 @@ import software.aws.toolkit.jetbrains.settings.AwsSettings
 import software.aws.toolkit.jetbrains.utils.notifyError
 import software.aws.toolkits.jetbrains.core.lsp.NodeRuntimeResolver
 import software.aws.toolkits.jetbrains.services.cfnlsp.CfnCredentialsService
-import software.aws.toolkits.jetbrains.services.cfnlsp.CfnLspServerProtocol
 import software.aws.toolkits.jetbrains.services.cfnlsp.CfnLspExtensionConfig
+import software.aws.toolkits.jetbrains.services.cfnlsp.CfnLspServerProtocol
 import software.aws.toolkits.jetbrains.settings.CfnLspSettings
 import software.aws.toolkits.resources.AwsToolkitBundle.message
 import java.nio.file.Path

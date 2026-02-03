@@ -10,8 +10,8 @@ import com.intellij.openapi.components.State
 import com.intellij.openapi.components.Storage
 import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
-import software.aws.toolkit.jetbrains.core.credentials.AwsConnectionManager
 import software.aws.toolkit.core.region.AwsRegion
+import software.aws.toolkit.jetbrains.core.credentials.AwsConnectionManager
 import software.aws.toolkit.jetbrains.core.region.AwsRegionProvider
 
 /**
@@ -61,7 +61,7 @@ internal class CloudFormationRegionManager : PersistentStateComponent<CloudForma
     }
 
     data class State(
-        var selectedRegionId: String? = null
+        var selectedRegionId: String? = null,
     )
 
     companion object {

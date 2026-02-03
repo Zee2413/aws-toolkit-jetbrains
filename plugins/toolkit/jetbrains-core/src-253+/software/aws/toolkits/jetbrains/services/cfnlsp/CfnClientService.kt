@@ -56,8 +56,11 @@ internal class CfnClientService(project: Project) {
         server.sendNotification { lsp ->
             (lsp as? CfnLspServerProtocol)?.let { cfn ->
                 request(cfn).whenComplete { result, error ->
-                    if (error != null) future.completeExceptionally(error)
-                    else future.complete(result)
+                    if (error != null) {
+                        future.completeExceptionally(error)
+                    } else {
+                        future.complete(result)
+                    }
                 }
             } ?: future.complete(null)
         }
