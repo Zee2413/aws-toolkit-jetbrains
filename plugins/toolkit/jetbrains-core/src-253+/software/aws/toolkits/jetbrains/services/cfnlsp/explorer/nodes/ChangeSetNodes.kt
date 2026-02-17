@@ -9,7 +9,11 @@ import com.intellij.ide.util.treeView.AbstractTreeNode
 import com.intellij.openapi.project.Project
 import com.intellij.ui.SimpleTextAttributes
 import software.aws.toolkits.jetbrains.core.explorer.devToolsTab.nodes.AbstractActionTreeNode
+import software.aws.toolkits.jetbrains.core.explorer.devToolsTab.nodes.ActionGroupOnRightClick
+import software.aws.toolkits.jetbrains.services.cfnlsp.CfnClientService
+import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.DescribeChangeSetParams
 import software.aws.toolkits.jetbrains.services.cfnlsp.stacks.ChangeSetsManager
+import software.aws.toolkits.jetbrains.services.cfnlsp.ui.ChangeSetDiffPanel
 import software.aws.toolkits.resources.AwsToolkitBundle.message
 
 internal class StackChangeSetsNode(
@@ -40,7 +44,7 @@ internal class StackChangeSetsNode(
         }
 
         val nodes = changeSets.map { changeSet ->
-            ChangeSetNode(project, changeSet.changeSetName, changeSet.status)
+            ChangeSetNode(project, stackName, changeSet.changeSetName, changeSet.status)
         }
 
         return if (changeSetsManager.hasMore(stackName)) {
@@ -80,9 +84,30 @@ internal class LoadMoreChangeSetsNode(
 
 internal class ChangeSetNode(
     nodeProject: Project,
-    private val changeSetName: String,
+    val stackName: String,
+    val changeSetName: String,
     private val status: String,
-) : AbstractTreeNode<String>(nodeProject, changeSetName) {
+) : AbstractActionTreeNode(nodeProject, changeSetName, null), ActionGroupOnRightClick {
+
+    override fun actionGroupName(): String = "aws.toolkit.cloudformation.changeset.actions"
+
+    override fun onDoubleClick(event: java.awt.event.MouseEvent) {
+        val clientService = CfnClientService.getInstance(project)
+        clientService.describeChangeSet(DescribeChangeSetParams(changeSetName, stackName))
+            .thenAccept { result ->
+                if (result != null) {
+                    com.intellij.openapi.application.runInEdt {
+                        ChangeSetDiffPanel.show(
+                            project = project,
+                            stackName = stackName,
+                            changeSetName = changeSetName,
+                            changes = result.changes ?: emptyList(),
+                            enableDeploy = result.status == "CREATE_COMPLETE",
+                        )
+                    }
+                }
+            }
+    }
 
     override fun update(presentation: PresentationData) {
         presentation.addText(changeSetName, SimpleTextAttributes.REGULAR_ATTRIBUTES)

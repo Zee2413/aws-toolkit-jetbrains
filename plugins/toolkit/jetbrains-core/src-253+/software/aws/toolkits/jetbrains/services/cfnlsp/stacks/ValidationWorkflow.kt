@@ -3,16 +3,19 @@
 
 package software.aws.toolkits.jetbrains.services.cfnlsp.stacks
 
+import com.intellij.openapi.application.runInEdt
 import com.intellij.openapi.project.Project
 import software.aws.toolkit.jetbrains.utils.notifyError
 import software.aws.toolkit.jetbrains.utils.notifyInfo
 import software.aws.toolkits.jetbrains.services.cfnlsp.CfnClientService
 import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.CreateValidationParams
+import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.DescribeChangeSetParams
 import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.DescribeValidationStatusResult
 import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.Identifiable
 import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.StackActionPhase
 import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.StackActionState
 import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.StackChange
+import software.aws.toolkits.jetbrains.services.cfnlsp.ui.ChangeSetDiffPanel
 import software.aws.toolkits.resources.AwsToolkitBundle.message
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Executors
@@ -33,6 +36,9 @@ internal class ValidationWorkflow(
     private val clientService: CfnClientService = CfnClientService.getInstance(project),
 ) {
     fun validate(params: CreateValidationParams): CompletableFuture<ValidationResult> {
+        lastValidationParams = params
+        lastProject = project
+
         notifyInfo(
             title = message("cloudformation.validation.title"),
             content = message("cloudformation.validation.started", params.stackName),
@@ -78,6 +84,21 @@ internal class ValidationWorkflow(
                                                 content = message("cloudformation.validation.success", stackName),
                                                 project = project
                                             )
+                                            // Fetch full change set details (includes property-level changes)
+                                            clientService.describeChangeSet(
+                                                software.aws.toolkits.jetbrains.services.cfnlsp.protocol.DescribeChangeSetParams(changeSetName, stackName)
+                                            ).thenAccept { changeSetResult ->
+                                                val fullChanges = changeSetResult?.changes ?: status.changes ?: emptyList()
+                                                runInEdt {
+                                                    ChangeSetDiffPanel.show(
+                                                        project = project,
+                                                        stackName = stackName,
+                                                        changeSetName = changeSetName,
+                                                        changes = fullChanges,
+                                                        enableDeploy = true,
+                                                    )
+                                                }
+                                            }
                                             future.complete(
                                                 ValidationResult.Success(
                                                     changes = status.changes ?: emptyList(),
@@ -129,5 +150,17 @@ internal class ValidationWorkflow(
 
     companion object {
         private const val POLL_INTERVAL_MS = 1000L
+
+        @Volatile
+        private var lastValidationParams: CreateValidationParams? = null
+
+        @Volatile
+        private var lastProject: Project? = null
+
+        fun getLastValidation(): Pair<Project, CreateValidationParams>? {
+            val p = lastProject ?: return null
+            val params = lastValidationParams ?: return null
+            return p to params
+        }
     }
 }
