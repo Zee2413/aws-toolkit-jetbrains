@@ -66,6 +66,10 @@ internal data class StackDetail(
     val description: String? = null,
     @SerializedName("Outputs")
     val outputs: List<StackOutput> = emptyList(),
+    @SerializedName("Parameters")
+    val parameters: List<software.aws.toolkits.jetbrains.services.cfnlsp.protocol.Parameter>? = null,
+    @SerializedName("Tags")
+    val tags: List<software.aws.toolkits.jetbrains.services.cfnlsp.protocol.Tag>? = null,
 )
 
 internal data class StackOutput(

@@ -14,7 +14,7 @@ import javax.swing.JPanel
 
 internal class StackViewPanelTabber(
     project: Project,
-    private val stackName: String,
+    internal val stackName: String,
     private val stackArn: String, // Use ARN as primary identifier
 ) : Disposable {
 
@@ -31,12 +31,39 @@ internal class StackViewPanelTabber(
     }
 
     // Used for future change set functionality
-    fun addTab(title: String, component: JComponent, index: Int? = null) {
+    fun addTab(title: String, component: JComponent, tooltip: String? = null, index: Int? = null) {
+        val tabTitle = if (title.length > 30) title.take(30) + "…" else title
         if (index != null) {
-            tabbedPane.insertTab(title, null, component, null, index)
+            tabbedPane.insertTab(tabTitle, null, component, tooltip, index)
         } else {
-            tabbedPane.addTab(title, component)
+            tabbedPane.insertTab(tabTitle, null, component, tooltip, tabbedPane.tabCount)
         }
+    }
+
+    fun updateChangeSetTab(title: String, component: JComponent, tooltip: String? = null) {
+        val tabTitle = if (title.length > 30) title.take(30) + "…" else title
+        val existingIndex = findChangeSetTabIndex()
+        if (existingIndex >= 0) {
+            tabbedPane.setComponentAt(existingIndex, component)
+            tabbedPane.setTitleAt(existingIndex, tabTitle)
+            tabbedPane.setToolTipTextAt(existingIndex, tooltip)
+            tabbedPane.selectedIndex = existingIndex
+        } else {
+            tabbedPane.insertTab(tabTitle, null, component, tooltip, tabbedPane.tabCount)
+            tabbedPane.selectedIndex = tabbedPane.tabCount - 1
+        }
+    }
+
+    private fun findChangeSetTabIndex(): Int {
+        for (i in 0 until tabbedPane.tabCount) {
+            if (tabbedPane.getTitleAt(i).startsWith("Change set:")) return i
+        }
+        return -1
+    }
+
+    fun removeChangeSetTab() {
+        val index = findChangeSetTabIndex()
+        if (index >= 0) tabbedPane.removeTabAt(index)
     }
 
     // Used for future change set functionality
