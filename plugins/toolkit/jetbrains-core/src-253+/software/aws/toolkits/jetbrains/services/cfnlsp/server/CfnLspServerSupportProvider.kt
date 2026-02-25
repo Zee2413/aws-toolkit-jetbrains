@@ -15,6 +15,7 @@ import com.intellij.platform.lsp.api.ProjectWideLspServerDescriptor
 import org.eclipse.lsp4j.ConfigurationItem
 import org.eclipse.lsp4j.MessageParams
 import org.eclipse.lsp4j.services.LanguageServer
+import org.jetbrains.annotations.TestOnly
 import software.aws.toolkit.core.utils.getLogger
 import software.aws.toolkit.core.utils.info
 import software.aws.toolkit.core.utils.warn
@@ -208,6 +209,9 @@ class CfnLspServerDescriptor private constructor(project: Project) :
 
         fun getInstance(project: Project): CfnLspServerDescriptor =
             instances.getOrPut(project) { CfnLspServerDescriptor(project) }
+
+        @TestOnly
+        fun providerClass(): Class<out LspServerSupportProvider> = CfnLspServerSupportProvider::class.java
     }
 }
 
