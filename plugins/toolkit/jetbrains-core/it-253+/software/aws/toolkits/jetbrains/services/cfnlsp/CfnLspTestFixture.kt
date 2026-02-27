@@ -9,7 +9,10 @@ import com.intellij.platform.lsp.api.LspServerManager
 import com.intellij.platform.lsp.api.LspServerState
 import com.intellij.testFramework.fixtures.CodeInsightTestFixture
 import com.intellij.testFramework.runInEdtAndWait
+import org.assertj.core.api.Assertions.assertThat
+import org.eclipse.lsp4j.DocumentSymbolParams
 import org.eclipse.lsp4j.DidOpenTextDocumentParams
+import org.eclipse.lsp4j.TextDocumentIdentifier
 import org.eclipse.lsp4j.TextDocumentItem
 import org.eclipse.lsp4j.services.LanguageServer
 import software.aws.toolkits.jetbrains.services.cfnlsp.server.CfnLspServerDescriptor
@@ -18,11 +21,15 @@ import java.util.concurrent.TimeUnit
 
 private const val LSP_STARTUP_TIMEOUT_MS = 120_000L
 private const val LSP_REQUEST_TIMEOUT_S = 30L
+private const val SCHEMA_READY_TIMEOUT_MS = 60_000L
+private const val DOCUMENT_READY_TIMEOUT_MS = 10_000L
 
 /**
  * Manages CloudFormation LSP server lifecycle and document operations for integration tests.
  */
 internal class CfnLspTestFixture(private val fixture: CodeInsightTestFixture) {
+
+    private var schemasReady = false
 
     fun tearDown() = fixture.tearDown()
 
@@ -32,12 +39,15 @@ internal class CfnLspTestFixture(private val fixture: CodeInsightTestFixture) {
         val vf = file!!
         runInEdtAndWait { fixture.openFileInEditor(vf) }
         ensureRunning()
+        ensureSchemasLoaded()
+
         request { lsp ->
             lsp.textDocumentService.didOpen(
                 DidOpenTextDocumentParams(TextDocumentItem(fileUri(vf), "yaml", 1, content))
             )
             CompletableFuture.completedFuture(Unit)
         }
+        waitForDocumentProcessed(vf)
         return vf
     }
 
@@ -64,12 +74,56 @@ internal class CfnLspTestFixture(private val fixture: CodeInsightTestFixture) {
         LspServerManager.getInstance(fixture.project)
             .ensureServerStarted(providerClass, CfnLspServerDescriptor.getInstance(fixture.project))
 
-        val deadline = System.currentTimeMillis() + LSP_STARTUP_TIMEOUT_MS
-        while (System.currentTimeMillis() < deadline) {
+        waitFor(timeoutMs = LSP_STARTUP_TIMEOUT_MS) {
             val servers = LspServerManager.getInstance(fixture.project).getServersForProvider(providerClass)
-            if (servers.any { it.state == LspServerState.Running }) return
-            Thread.sleep(1_000)
+            assertThat(servers.any { it.state == LspServerState.Running })
+                .withFailMessage("CloudFormation LSP server not in Running state")
+                .isTrue()
         }
-        throw AssertionError("CloudFormation LSP server did not reach Running state within ${LSP_STARTUP_TIMEOUT_MS / 1000}s")
+    }
+
+    /**
+     * Calls aws/cfn/resources/types to confirm public schemas have been loaded.
+     */
+    private fun ensureSchemasLoaded() {
+        if (schemasReady) return
+
+        val protocolClass = Class.forName("software.aws.toolkits.jetbrains.services.cfnlsp.CfnLspServerProtocol")
+        val listResourceTypes = protocolClass.getMethod("listResourceTypes")
+
+        waitFor(timeoutMs = SCHEMA_READY_TIMEOUT_MS) {
+            val future = CompletableFuture<Boolean>()
+            runningServer().sendNotification { lsp ->
+                if (protocolClass.isInstance(lsp)) {
+                    @Suppress("UNCHECKED_CAST")
+                    val resultFuture = listResourceTypes.invoke(lsp) as CompletableFuture<Any?>
+                    resultFuture.whenComplete { result, error ->
+                        val types = result?.javaClass?.getMethod("getResourceTypes")?.invoke(result) as? List<*>
+                        future.complete(error == null && types?.isNotEmpty() == true)
+                    }
+                } else {
+                    future.complete(false)
+                }
+            }
+            assertThat(future.get(LSP_REQUEST_TIMEOUT_S, TimeUnit.SECONDS))
+                .withFailMessage("Schemas not loaded yet")
+                .isTrue()
+        }
+
+        schemasReady = true
+    }
+
+    /**
+     * Requests document symbols to confirm the server has parsed the document after didOpen.
+     */
+    private fun waitForDocumentProcessed(file: VirtualFile) {
+        waitFor(timeoutMs = DOCUMENT_READY_TIMEOUT_MS) {
+            val result = request { lsp ->
+                lsp.textDocumentService.documentSymbol(
+                    DocumentSymbolParams(TextDocumentIdentifier(fileUri(file)))
+                )
+            }
+            assertThat(result).withFailMessage("Document not yet processed by server").isNotEmpty()
+        }
     }
 }
