@@ -5,12 +5,15 @@ package software.aws.toolkits.jetbrains.services.cfnlsp
 
 import org.eclipse.lsp4j.jsonrpc.services.JsonRequest
 import org.eclipse.lsp4j.services.LanguageServer
+import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.ClearStackEventsParams
 import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.CreateStackActionResult
 import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.CreateValidationParams
 import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.DescribeStackParams
 import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.DescribeStackResult
 import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.DescribeValidationStatusResult
 import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.GetStackActionStatusResult
+import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.GetStackEventsParams
+import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.GetStackEventsResult
 import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.GetStackResourcesParams
 import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.Identifiable
 import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.ListChangeSetsParams
@@ -83,4 +86,10 @@ internal interface CfnLspServerProtocol : LanguageServer {
 
     @JsonRequest("aws/cfn/stack/resources")
     fun getStackResources(params: GetStackResourcesParams): CompletableFuture<ListStackResourcesResult>
+
+    @JsonRequest("aws/cfn/stack/events")
+    fun getStackEvents(params: GetStackEventsParams): CompletableFuture<GetStackEventsResult>
+
+    @JsonRequest("aws/cfn/stack/events/clear")
+    fun clearStackEvents(params: ClearStackEventsParams): CompletableFuture<Void>
 }

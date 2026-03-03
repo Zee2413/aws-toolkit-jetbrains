@@ -14,12 +14,15 @@ import com.intellij.platform.lsp.api.LspServerManager
 import org.eclipse.lsp4j.DidChangeConfigurationParams
 import org.eclipse.lsp4j.DidOpenTextDocumentParams
 import org.eclipse.lsp4j.TextDocumentItem
+import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.ClearStackEventsParams
 import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.CreateStackActionResult
 import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.CreateValidationParams
 import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.DescribeStackParams
 import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.DescribeStackResult
 import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.DescribeValidationStatusResult
 import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.GetStackActionStatusResult
+import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.GetStackEventsParams
+import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.GetStackEventsResult
 import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.GetStackResourcesParams
 import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.Identifiable
 import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.ListChangeSetsParams
@@ -142,6 +145,12 @@ internal class CfnClientService(private val project: Project) {
 
     fun getStackResources(params: GetStackResourcesParams): CompletableFuture<ListStackResourcesResult?> =
         sendRequest { it.getStackResources(params) }
+
+    fun getStackEvents(params: GetStackEventsParams): CompletableFuture<GetStackEventsResult?> =
+        sendRequest { it.getStackEvents(params) }
+
+    fun clearStackEvents(params: ClearStackEventsParams): CompletableFuture<Void?> =
+        sendRequest { it.clearStackEvents(params) }
 
     companion object {
         fun getInstance(project: Project): CfnClientService = project.service()
